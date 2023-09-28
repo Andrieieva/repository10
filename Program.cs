@@ -1,14 +1,35 @@
 ﻿using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 
 internal class Program
 {
-    static string database = @"./Phonebook.txt";
+    static string database = @"C:\users\Admin\source\repos\09-01\09-01\Phonebook.txt";
     static (string name, string phone, DateTime birth)[] contacts;
 
     static void Main(string[] args)
     {
         string[] records = ReadDatabaseAllTextLines(database);
         contacts = ConvertStringsToContacts(records);
+
+        var fs = default(FileStream);
+        try
+        {
+            // Opens a text file.
+            fs = new FileStream(@"C:\users\Admin\source\repos\09-01\09-01\Phonebook.txt", FileMode.Open);
+        }
+        catch (FileNotFoundException e)
+        {
+            Console.WriteLine($"[Data File Missing] {e}");
+            throw new FileNotFoundException(@"[Phonebook.txt not in c:\users\Admin\source\repos\09-01\09-01 directory]", e);
+        }
+        finally
+        {
+            if (fs != null)
+                fs.Close();
+        }
 
         while (true)
         {
@@ -27,138 +48,123 @@ internal class Program
         Console.WriteLine("7. Close the phonebook");
         Console.Write("Enter your choice: ");
 
-        int input;
-        if (int.TryParse(Console.ReadLine(), out input))
+        ulong input = 0;
+        bool tryAgain = true;
+        while (tryAgain)
         {
             try
             {
-                switch (input)
-                {
-                    case 1:
-                        WriteAllContactsToConsole();
-                        break;
-                    case 2:
-                        AddNewContact();
-                        break;
-                    case 3:
-                        EditContact();
-                        break;
-                    case 4:
-                        SearchContact();
-                        break;
-                    case 5:
-                        DeleteContact();
-                        break;
-                    case 6:
-                        SaveContactsToFile();
-                        break;
-                    case 7:
-                        Console.WriteLine("Closing the phonebook. Goodbye!");
-                        Environment.Exit(0);
-                        break;
-                    default:
-                        Console.WriteLine("No such operation.");
-                        break;
-                }
+                input = ulong.Parse(Console.ReadLine(), System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                tryAgain = false;
             }
-            catch (Exception ex)
+            catch (FormatException)
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                Console.Write("You've entered a wrong choice, please try again: ");
             }
-        }
-        else
-        {
-            Console.WriteLine("Invalid input. Please enter a valid numeric choice.");
-        }
-    }
-    static (string name, string phone, DateTime birth)[] ConvertStringsToContacts(string[] records)
-    {
-        var contacts = new (string name, string phone, DateTime birth)[records.Length];
-        for (int i = 0; i < records.Length; ++i)
-        {
-            string[] array = records[i].Split(',');
-            if (array.Length != 3)
+            catch (OverflowException)
             {
-                Console.WriteLine($"Line #{i + 1}: '{records[i]}' cannot be parsed");
-                continue;
+                Console.Write("Oleksii says that you suck at math, try a POSITIVE number: ");
             }
-            contacts[i].name = array[0];
-            contacts[i].phone = array[1];
-            contacts[i].birth = DateTime.ParseExact(array[2], "dd.MM.yyyy", null);
+            catch (SystemException)
+            {
+                Console.WriteLine("Sorry, some system happened");
+            }
+            catch
+            {
+                Console.WriteLine("Sorry, idk what happened");
+            }
+            finally
+            {
+            }
         }
-        return contacts;
+
+        switch (input)
+        {
+            case 1:
+                WriteAllContactsToConsole();
+                break;
+            case 2:
+                AddNewContact();
+                break;
+            case 3:
+                EditContact();
+                break;
+            case 4:
+                SearchContact();
+                break;
+            case 5:
+                DeleteContact();
+                break;
+            case 6:
+                SaveContactsToFile();
+                break;
+            case 7: // Option to close the phonebook
+                Console.WriteLine("Closing the phonebook. Goodbye!");
+                Environment.Exit(0); // Terminate the program
+                break;
+            default:
+                Console.WriteLine("No such operation.");
+                break;
+        }
     }
 
     static void AddNewContact()
     {
-        try
+        Console.Write("Enter Name: ");
+        string name = Console.ReadLine();
+        Console.Write("Enter Phone: ");
+        string phone = Console.ReadLine();
+        Console.Write("Enter Date of Birth (dd.mm.yyyy): ");
+        DateTime birth;
+        if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out birth))
         {
-            Console.Write("Enter Name: ");
-            string name = Console.ReadLine();
-            Console.Write("Enter Phone: ");
-            string phone = Console.ReadLine();
-            Console.Write("Enter Date of Birth (dd.mm.yyyy): ");
-            DateTime birth;
-            if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out birth))
-            {
-                var newContact = (name, phone, birth);
-                contacts = contacts.Concat(new[] { newContact }).ToArray();
-                Console.WriteLine("Contact added successfully.");
-            }
-            else
-            {
-                Console.WriteLine("Invalid date format. Contact not added.");
-            }
+            var newContact = (name, phone, birth);
+            contacts = contacts.Concat(new[] { newContact }).ToArray();
+            Console.WriteLine("Contact added successfully.");
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"An error occurred while adding a contact: {ex.Message}");
+            Console.WriteLine("Invalid date format. Contact not added.");
         }
     }
 
     static void EditContact()
     {
-        try
+        Console.Write("Enter the name to edit: ");
+        string nameToEdit = Console.ReadLine();
+        var indexToEdit = -1;
+        for (int i = 0; i < contacts.Length; i++)
         {
-            Console.Write("Enter the name to edit: ");
-            string nameToEdit = Console.ReadLine();
-            var indexToEdit = -1;
-            for (int i = 0; i < contacts.Length; i++)
+            if (contacts[i].name.Equals(nameToEdit, StringComparison.OrdinalIgnoreCase))
             {
-                if (contacts[i].name.Equals(nameToEdit, StringComparison.OrdinalIgnoreCase))
-                {
-                    indexToEdit = i;
-                    break;
-                }
+                indexToEdit = i;
+                break;
             }
-            if (indexToEdit != -1)
-            {
-                Console.Write("Enter new Name: ");
-                string newName = Console.ReadLine();
-                Console.Write("Enter new Phone: ");
-                string newPhone = Console.ReadLine();
-                Console.Write("Enter new Date of Birth (dd.mm.yyyy): ");
-                DateTime birth;
+        }
+        if (indexToEdit != -1)
+        {
+            Console.Write("Enter new Name: ");
+            string newName = Console.ReadLine();
+            Console.Write("Enter new Phone: ");
+            string newPhone = Console.ReadLine();
+            Console.Write("Enter new Date of Birth (dd.mm.yyyy): ");
+            DateTime birth;
 
-                if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out birth))
-                {
-                    var updatedContact = (newName, newPhone, birth);
-                    contacts[indexToEdit] = updatedContact;
-                    Console.WriteLine("Contact edited successfully.");
-                }
-                else
-                {
-                    Console.WriteLine("Invalid date format. Contact not edited.");
-                }
+            if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out birth))
+            {
+                var updatedContact = (newName, newPhone, birth);
+                contacts[indexToEdit] = updatedContact;
+
+                Console.WriteLine("Contact edited successfully.");
             }
             else
             {
-                Console.WriteLine($"Contact with name '{nameToEdit}' not found.");
+                Console.WriteLine("Invalid date format. Contact not edited.");
             }
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"An error occurred while editing a contact: {ex.Message}");
+            Console.WriteLine($"Contact with name '{nameToEdit}' not found.");
         }
     }
 
@@ -199,7 +205,6 @@ internal class Program
         }
     }
 
-
     static void WriteAllContactsToConsole()
     {
         for (int i = 0; i < contacts.Length; i++)
@@ -209,63 +214,74 @@ internal class Program
         }
     }
 
-    static void DeleteContact()
+    static (string name, string phone, DateTime date)[] ConvertStringsToContacts(string[] records)
     {
+        var contacts = new (string name, string phone, DateTime date)[records.Length];
         try
         {
-            Console.Write("Enter the name to delete: ");
-            string nameToDelete = Console.ReadLine();
-            var indexToDelete = -1;
-            for (int i = 0; i < contacts.Length; i++)
+            for (int i = 0; i < records.Length; ++i)
             {
-                if (contacts[i].name.Equals(nameToDelete, StringComparison.OrdinalIgnoreCase))
+                string[] array = records[i].Split(','); // "Oleksii", "+38090873928", "30.03.1993"
+                if (array.Length != 3)
                 {
-                    indexToDelete = i;
-                    break;
+                    Console.WriteLine($"Line #{i + 1}: '{records[i]}' cannot be parsed");
+                    continue;
                 }
-            }
-            if (indexToDelete != -1)
-            {
-                var updatedContacts = new (string name, string phone, DateTime birth)[contacts.Length - 1];
-                for (int i = 0, j = 0; i < contacts.Length; i++)
-                {
-                    if (i != indexToDelete)
-                    {
-                        updatedContacts[j] = contacts[i];
-                        j++;
-                    }
-                }
-
-                contacts = updatedContacts;
-                Console.WriteLine("Contact deleted successfully.");
-            }
-            else
-            {
-                Console.WriteLine($"Contact with name '{nameToDelete}' not found.");
+                contacts[i].name = array[0];
+                contacts[i].phone = array[1];
+                contacts[i].date = DateTime.Parse(array[2]);
             }
         }
-        catch (Exception ex)
+        catch (IndexOutOfRangeException)
         {
-            Console.WriteLine($"An error occurred while deleting a contact: {ex.Message}");
+            Console.WriteLine("An error occurred due to an invalid array index. Check your data.");
+        }
+        return contacts;
+    }
+
+    static void DeleteContact()
+    {
+        Console.Write("Enter the name to delete: ");
+        string nameToDelete = Console.ReadLine();
+        var indexToDelete = -1;
+        for (int i = 0; i < contacts.Length; i++)
+        {
+            if (contacts[i].name.Equals(nameToDelete, StringComparison.OrdinalIgnoreCase))
+            {
+                indexToDelete = i;
+                break;
+            }
+        }
+        if (indexToDelete != -1)
+        {
+            var updatedContacts = new (string name, string phone, DateTime birth)[contacts.Length - 1];
+            for (int i = 0, j = 0; i < contacts.Length; i++)
+            {
+                if (i != indexToDelete)
+                {
+                    updatedContacts[j] = contacts[i];
+                    j++;
+                }
+            }
+
+            contacts = updatedContacts;
+
+            Console.WriteLine("Contact deleted successfully.");
+        }
+        else
+        {
+            Console.WriteLine($"Contact with name '{nameToDelete}' not found.");
         }
     }
 
     static void SaveContactsToFile()
     {
-        try
+        string[] lines = new string[contacts.Length];
+        for (int i = 0; i < lines.Length; i++)
         {
-            string[] lines = new string[contacts.Length];
-            for (int i = 0; i < lines.Length; i++)
-            {
-                lines[i] = $"{contacts[i].Item1},{contacts[i].Item2},{contacts[i].Item3:dd.MM.yyyy}";
-            }
-            File.WriteAllLines(database, lines);
-            Console.WriteLine("Contacts saved to file successfully.");
+            lines[i] = $"{contacts[i].Item1},{contacts[i].Item2},{contacts[i].Item3}";
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while saving contacts to a file: {ex.Message}");
-        }
+        File.WriteAllLines(database, lines);
     }
 
     static string[] ReadDatabaseAllTextLines(string file)
@@ -274,14 +290,26 @@ internal class Program
         {
             if (!File.Exists(file))
             {
-                File.WriteAllText(file, "");
+                Console.WriteLine($"The file was not found");
+                return null;
             }
-            return File.ReadAllLines(file);
+
+            using (StreamReader sr = File.OpenText(file))
+            {
+                string line = sr.ReadLine();
+                Console.WriteLine($"The first line of this file is: {line}");
+                return File.ReadAllLines(file);
+            }
         }
-        catch (Exception ex)
+        catch (DirectoryNotFoundException)
         {
-            Console.WriteLine($"An error occurred while reading the database file: {ex.Message}");
-            return new string[0];
+            Console.WriteLine($"The directory was not found");
         }
+        catch (IOException)
+        {
+            Console.WriteLine($"The file could not be opened");
+        }
+
+        return null;
     }
 }
